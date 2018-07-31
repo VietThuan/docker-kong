@@ -1,8 +1,41 @@
 version: '2.1'
 
-services:
+networks:
+  my-macvlan-net:
 
+services:
+  ubuntu:
+    image: ubuntu
+    stdin_open: true
+    tty: true
+
+  konga:
+    image: pantsel/konga:latest
+    container_name: konga
+    depends_on:
+      - mongo
+    ports:
+      - 1337:1337
+    environment:
+      - DB_ADAPTER=mongo
+      - DB_HOST=db
+      - DB_DATABASE=konga
+      - NODE_ENV=development
+    networks:
+      - my-macvlan-net
+
+  mongo:
+    container_name: db
+    image: mongo
+    volumes:
+      - /data/db:/data/db
+    ports:
+      - 127.0.0.1:27017:27017
+    networks:
+      - my-macvlan-net
   consul:
+    networks:
+      - my-macvlan-net
     image: progrium/consul:latest
     command: -server -bootstrap -ui-dir /ui
     healthcheck:
@@ -22,6 +55,8 @@ services:
       - 127.0.0.1
 
   nginx-lb:
+    networks:
+      - my-macvlan-net
     build: nginx/
     depends_on:
       consul:
@@ -44,6 +79,8 @@ services:
         nginx -g "daemon off;"
 
   kong-database:
+    networks:
+      - my-macvlan-net
     image: postgres:9.5
     environment:
       - POSTGRES_USER=kong
@@ -55,6 +92,8 @@ services:
       retries: 5
 
   kong-migration:
+    networks:
+      - my-macvlan-net
     image: kong
     depends_on:
       kong-database:
@@ -65,6 +104,8 @@ services:
     command: kong migrations up
 
   kong:
+    networks:
+      - my-macvlan-net
     build: kong/
     depends_on:
       kong-database:
